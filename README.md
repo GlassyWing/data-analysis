@@ -12,6 +12,7 @@
     | 1020 | 1018 | 9.0            |
 
 2. 计算结果：
+
     | id   | pid  | cost(optional) |
     | ---- | ---- | -------------- |
     | 1019 | 801  | 9.2            |
@@ -23,13 +24,15 @@
 
 3. 用法：
     - 若表中只有一棵树，将元素列名和父元素列名传入，若需要计算代价，将代价列名传入:
+
         ```python
-            alg = ShortestPath('id', 'pid', weight='cost')
-            result = alg.run(df, spark)
+        alg = ShortestPath('id', 'pid', weight='cost')
+        result = alg.run(df, spark)
         ```
 
     - 若表中有多棵树，需要将能唯一标识一棵树的所有列名传入
+
         ```python
         alg = ShortestPath('id', 'pid', weight='cost', limit_cols=['col1', 'col2',...])
-                result = alg.run(df, spark)
+        result = alg.run(df, spark)
         ```
