@@ -49,4 +49,4 @@ if __name__ == '__main__':
 
     alg = FetchAllPaths("id", "pid", weight_name="cost", limit_cols=["gid"])
     result = alg.run(df, spark)
-    result.sort(f.col("gid").asc(), f.col("id").asc(), f.col("pid").asc()).show(50, truncate=False)
+    result.show(50, truncate=False)

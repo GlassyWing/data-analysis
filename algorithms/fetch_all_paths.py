@@ -61,9 +61,9 @@ class FetchAllPaths(AnalysisAlgorithm):
         cnt = 1
         df_seed = spark.sql(f"""
             SELECT * FROM origin 
-            WHERE {self.child_col_name} NOT IN
+            WHERE concat_ws(',', {','.join(self.limit_cols + [self.child_col_name])}) NOT IN
             (
-                SELECT DISTINCT {self.parent_col_name}
+                SELECT DISTINCT concat_ws(',', {','.join(self.limit_cols + [self.parent_col_name])})
                 FROM origin
             )
         """).repartition(self.parallelism).persist()
@@ -87,7 +87,7 @@ class FetchAllPaths(AnalysisAlgorithm):
             """)
             df_seed = df_seed.repartition(self.parallelism).persist()
             df_cnt = df_seed.count()
-            print(f"Layers :{cnt}, nodes: {df_cnt}, time: {datetime.now() - start_time}")
+            print(f"Layer :{cnt}, nodes: {df_cnt}, time: {datetime.now() - start_time}")
             if df_cnt != 0:
                 df_seed.createOrReplaceTempView(tblnm1)
             cnt += 1
@@ -110,7 +110,11 @@ class FetchAllPaths(AnalysisAlgorithm):
 
         result = spark.sql(fin_query)
 
-        return result
+        sort_spec = [f.col(col).asc() for col in self.limit_cols]
+        sort_spec.append(f.col(self.child_col_name).asc())
+        sort_spec.append(f.col(weight_name).desc())
+
+        return result.sort(sort_spec)
 
     def __init__(self, child_col_name, parent_col_name, weight_name=None, limit_cols=None, parallelism=4):
         self.child_col_name = child_col_name
