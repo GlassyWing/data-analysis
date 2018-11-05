@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from pyspark.sql import DataFrame, SparkSession
 import pyspark.sql.functions as f
+from pyspark.sql import DataFrame, SparkSession
+
 from algorithms import AnalysisAlgorithm
-from typing import Callable
 
 
 class FetchAllPaths(AnalysisAlgorithm):
@@ -29,10 +29,10 @@ class FetchAllPaths(AnalysisAlgorithm):
 
     3. 用法：
         - 若表中只有一棵树，将元素列名和父元素列名传入，若需要计算代价，将代价列名传入
-            alg = ShortestPath('id', 'pid', weight='cost')
+            alg = FetchAllPaths('id', 'pid', weight='cost')
             result = alg.run(df, spark)
         - 若表中有多棵树，需要将能唯一标识一棵树的所有列名传入
-            alg = ShortestPath('id', 'pid', weight='cost', limit_cols=['col1', 'col2',...])
+            alg = FetchAllPaths('id', 'pid', weight='cost', limit_cols=['col1', 'col2',...])
             result = alg.run(df, spark)
 
     """
@@ -54,7 +54,8 @@ class FetchAllPaths(AnalysisAlgorithm):
             limit_cols = map(lambda col: f"direct.{col} = indirect.{col}", self.limit_cols)
             ls = " AND " + " AND ".join(limit_cols)
 
-        df.persist().createOrReplaceTempView("origin")
+        df = df.repartition(self.parallelism).persist()
+        df.createOrReplaceTempView("origin")
 
         df_cnt = 1
         cnt = 1
@@ -65,11 +66,11 @@ class FetchAllPaths(AnalysisAlgorithm):
                 SELECT DISTINCT {self.parent_col_name}
                 FROM origin
             )
-        """).persist()
+        """).repartition(self.parallelism).persist()
 
         print("Found all leaf")
 
-        df_seed.registerTempTable("vt_seed0")
+        df_seed.createOrReplaceTempView("vt_seed0")
 
         start_time = datetime.now()
         while df_cnt != 0:
@@ -84,11 +85,11 @@ class FetchAllPaths(AnalysisAlgorithm):
                 FROM {tblnm} direct, origin indirect
                 WHERE direct.{self.parent_col_name} = indirect.{self.child_col_name} {ls}
             """)
-            df_seed.persist()
+            df_seed = df_seed.repartition(self.parallelism).persist()
             df_cnt = df_seed.count()
             print(f"Layers :{cnt}, nodes: {df_cnt}, time: {datetime.now() - start_time}")
             if df_cnt != 0:
-                df_seed.registerTempTable(tblnm1)
+                df_seed.createOrReplaceTempView(tblnm1)
             cnt += 1
 
         fin_query = ""
@@ -109,15 +110,12 @@ class FetchAllPaths(AnalysisAlgorithm):
 
         result = spark.sql(fin_query)
 
-        if self.weight_name is None:
-            result = result.drop(weight_name)
-
         return result
 
-    def __init__(self, child_col_name, parent_col_name, weight_name=None, limit_cols=None):
+    def __init__(self, child_col_name, parent_col_name, weight_name=None, limit_cols=None, parallelism=4):
         self.child_col_name = child_col_name
         self.parent_col_name = parent_col_name
-
+        self.parallelism = parallelism
         self.weight_name = weight_name
         if limit_cols is None:
             self.limit_cols = []
