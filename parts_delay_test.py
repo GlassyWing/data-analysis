@@ -56,10 +56,15 @@ def save_single_partition(rows, columns):
     :return:
     """
     columns = list(map(lambda column: '"' + column + '"', columns))  # 必须添加双引号
+
+    # 单独建立一个链接
     db_conn = pg.connect(database="postgres", user="gpadmin", password="gpadmin", host="172.18.130.101", port="5432")
     cursor = db_conn.cursor()
+
+    # 保存到表dw.delay_info
     sql = f'INSERT INTO dw.delay_info ({",".join(columns)}) VALUES ({",".join(["%s"] * len(columns))});'
     E.execute_batch(cursor, sql, rows)
+
     db_conn.commit()
     cursor.close()
     db_conn.close()
